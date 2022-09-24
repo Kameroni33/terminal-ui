@@ -2,7 +2,6 @@ import datetime
 import time
 
 from .resources import constants, graphics
-from .custom_exceptions import ElementOverflow, InvalidElement
 
 
 class Element:
@@ -14,16 +13,27 @@ class Element:
     :param: border -> if true the class will draw a border around the element
     """
 
-    def __init__(self, width: int = 0, height: int = 0, border: bool = False, continuous: bool = False,
-                 right_aligned: bool = False, selectable: bool = False, linked_element: bool = None):
+    def __init__(
+        self,
+        width: int = 0,
+        height: int = 0,
+        label: str = '',
+        border: bool = False,
+        continuous: bool = False,
+        right_aligned: bool = False,
+        selectable: bool = False,
+        linked_element: bool = None):
+
         self.width = width
         self.height = height
+        self.labe = label
         self.border = border
         self.continuous = continuous
         self.right_aligned = right_aligned
         self.selectable = selectable
         self.linked_element = linked_element
 
+        self.nested_elements = None
         self.selected = False
 
         if self.selectable:
@@ -32,7 +42,9 @@ class Element:
             self.width += 2
             self.height += 2
 
-        self.pixel_array = [[graphics.BACKGROUND] * width for i in range(height)]
+        print(f'creating pixel array with width: {self.width} and height: {self.height} ...')
+        self.pixel_array = [[graphics.BACKGROUND] * self.width for i in range(self.height + 1)]
+        print(f'pixel_array: {self.pixel_array}')
 
     def fill_solid(self, length: int, char: str):
         char_str = ''
@@ -40,8 +52,7 @@ class Element:
             char_str += char
         self.fill(char_str)
 
-    def fill(self, text: str):
-        char_list = list(text)
+    def fill_text(self, text: str):
         x_pos = 0
         y_pos = 0
         x_offset = 0
@@ -50,18 +61,21 @@ class Element:
             x_offset += 1
             y_offset += 1
         if self.selectable:
-            x_offset += 1
-
-        for char in char_list:
+            x_pos += 1
+        for char in list(text):
             if char == '\n':
                 x_pos = 0
                 y_pos += 1
             else:
                 self.pixel_array[y_pos + y_offset][x_pos + x_offset] = char
-                x_pos = x_pos + 1 if x_pos < self.width - x_offset else 0
-                y_pos = y_pos + 1 if x_pos >= self.width - x_offset else y_pos
-            if y_pos >= self.height - y_offset:
-                raise InvalidElement('Content size is greater than element size.')
+                if x_pos < self.width - x_offset:
+                    x_pos += 1
+                else:
+                    if y_pos < self.height - y_offset:
+                        y_pos += 1
+                        x_pos = 0
+                    else:
+                        raise Exception('Content size is greater than element size.')
 
     def select(self):
         if self.selectable:
@@ -112,8 +126,35 @@ class Text(Element):
     Text element.
     """
 
-    def __init__(self, text: str, width: int, height: int, border=False, continuous=False, right_aligned=False):
-        super().__init__(width + 2, 3, continuous=continuous, right_aligned=right_aligned, selectable=selectable)
+    def __init__(self,
+        text: str = '',
+        width: int = 0,
+        height: int = 0,
+        label: str = '',
+        border: bool = False,
+        continuous: bool = False,
+        right_aligned: bool = False):
+
+        if text and not width and not height:
+            width, height = self.auto_size(text)
+            print(f'auto_width:  {width}')
+            print(f'auto_height: {height}')
+
+        super().__init__(width, height, label=label, border=border, continuous=continuous, right_aligned=right_aligned)
+        self.fill_text(text)
+
+    def auto_size(self, text):
+        longest_row = 0
+        auto_width = 0
+        auto_height = 0
+        for char in list(text):
+            if char == '\n':
+                auto_height += 1
+                auto_width = 0
+            else:
+                auto_width += 1
+                longest_row = auto_width if auto_width > longest_row else longest_row
+        return (longest_row, auto_height)
 
 
 class TextInput(Element):
@@ -195,6 +236,8 @@ class ElementCollection:
     def select_previous(self):
         pass
 
+    def get_elements(self) -> list:
+        return self.elements
 
 def build_border(pixel_array: list):
     width = len(pixel_array[0])

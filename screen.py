@@ -1,7 +1,7 @@
 import time
 
 from .resources import constants
-from .pages import PageCollection
+from .pages import Page, PageCollection
 from .display import Display
 from .controller import Controller
 
@@ -14,6 +14,9 @@ class Screen:
         self.page_collection = PageCollection()
         self.display = Display(self.page_collection)
         self.controller = Controller(self.page_collection, self.display)
+
+    def add_page(self, page: Page):
+        self.page_collection.add_page(page)
 
     def play(self):
         while True:

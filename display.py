@@ -8,7 +8,7 @@ from .pages import PageCollection
 class Display:
 
     def __init__(self, page_collection: PageCollection):
-        self._pages = page_collection
+        self.pages = page_collection
 
         self.width = None
         self.height = None
@@ -18,12 +18,12 @@ class Display:
         self.scroll_vertical = 0
         self.scroll_horizontal = 0
 
-        os.system('cls')
+        os.system('cls' if os.name == 'nt' else 'clear')
         cursor.hide()
 
     def clear(self):
         if self._refresh:
-            os.system('cls')
+            os.system('cls' if os.name == 'nt' else 'clear')
             self._refresh = False
         else:
             print(f'\033[H', end='')
@@ -79,19 +79,61 @@ class Display:
                 elif col == self.width-1:
                     self.canvas[row][col] = graphics.EDGE_RIGHT
 
-    def render_elements(self, canvas_row: int, canvas_col: int, elements: list, scroll=False):
-        pass
+    def render_elements(self, canvas_row_start: int, canvas_row_stop: int, canvas_col_start: int, canvas_col_stop: int, elements: list):
+        canvas_row_pos = canvas_row_start
+        canvas_col_pos = canvas_col_start
+        for element in elements:
+            if element.nested_elements:
+                raise Exception('nested elements are not yet supported')
+            else:
+                printing_current_element = True
+                element_row_pos = 0
+                element_col_pos = 0
+                step = 0
+                while printing_current_element:
+                    self.canvas[canvas_row_pos][canvas_col_pos] = element.pixel_array[element_row_pos][element_col_pos]
+                    # Increment the canvas and element positions
+                    if canvas_col_pos < canvas_col_stop:
+                        if element_col_pos < element.width - 1:
+                            canvas_col_pos += 1
+                            element_col_pos += 1
+                        else:
+                            if element_row_pos < element.height -1:
+                                element_col_pos = 0
+                                element_row_pos += 1
+                            else:
+                                printing_current_element = False
+                    elif canvas_row_pos < canvas_row_stop:
+                        if element_row_pos < element.height -1:
+                            canvas_col_pos = canvas_row_start
+                            canvas_row_pos += 1
+                            element_col_pos = 0
+                            element_row_pos += 1
+                        else:
+                            printing_current_element = False
+                    else:
+                        printing_current_element = False
+
+
+
 
     def display(self):
-        screen_string = ''
+        canvas_string = ''
         for row in range(self.height):
             for col in range(self.width):
-                screen_string += self.canvas[row][col]
-            screen_string += '\n' if row < self.height-1 else ''
-        print(screen_string, end='')
+                canvas_string += self.canvas[row][col]
+            canvas_string += '\n' if row < self.height-1 else ''
+        print(canvas_string, end='')
+
+    def get_elements(self) -> list:
+        if self.pages:
+            return self.pages.get_elements()
+        else:
+            raise Exception('no page_collection exists for the screen')
 
     def step(self):
         self.update_screen_size()
         self.render_border()
+        self.render_elements(1, self.width-2, 1, self.height-2, self.get_elements())
         self.clear()
         self.display()
